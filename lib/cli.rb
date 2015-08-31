@@ -14,21 +14,12 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-class Cli < Thor
+class Cli < CliBase
+
+  KdeCli.register_to(self)
+  ClientCli.register_to(self)
 
   default_task :global
-
-  class_option :version, :type => :boolean, :desc => "Show version"
-  class_option :offline, :type => :boolean, :desc => "Work offline"
-  class_option :manifest_dir, :type => :string, :desc => "Manifest directory"
-
-  def self.settings= s
-    @@settings = s
-  end
-
-  def self.distro= d
-    @@distro = d
-  end
 
   desc "global", "Global options", :hide => true
   def global
@@ -49,26 +40,6 @@ class Cli < Thor
     end
   end
 
-  desc "list", "List libraries"
-  method_option :remote, :type => :boolean, :aliases => "-r",
-    :desc => "List remote libraries"
-  def list
-    process_global_options options
-
-    handler = ManifestHandler.new @@settings
-    handler.read_remote
-
-    if options[:remote]
-      handler.libraries.each do |library|
-        puts library.name + " (" + library.versions.join(", ") + ")"
-      end
-    else
-      manifests = @@distro.installed handler
-      manifests.each do |manifest|
-        puts manifest["name"]
-      end
-    end
-  end
 
   desc "view", "Create view"
   method_option :output_dir, :type => :string, :aliases => "-o",
@@ -81,12 +52,10 @@ actual domain."
   method_option :disable_search, :type => :boolean,
     :desc => "Disable Google based search."
   def view
-    process_global_options options
-
     if options[:manifest_dir]
       @@settings.manifest_path = options[:manifest_dir]
     end
-    
+
     manifest_handler = ManifestHandler.new(@@settings)
     manifest_handler.read_remote
 
@@ -96,17 +65,10 @@ actual domain."
     view.create options[:output_dir]
   end
 
-  desc "show <library_name>", "Show library details"
-  def show name
-    Upstream.get_involved "Add command for showing library details", 1
-  end
-
   desc "verify [filename]", "Verify all manifests or specific file if filename is given"
   method_option :check_links, :type => :boolean,
     :desc => "Check links for reachability."
   def verify filename=nil
-    process_global_options options
-
     v = Verifier.new @@settings
 
     if options[:check_links]
@@ -214,90 +176,9 @@ actual domain."
     end
   end
 
-  desc "create_kde_frameworks <frameworks-git-checkout> <output_dir>",
-    "Create manifests from git checkout of KDE frameworks module in given directory"
-  method_option "show-warnings", :type => :boolean,
-    :desc => "Show warnings about missing data", :required => false
-  method_option "ignore-errors-homepage", :type => :boolean,
-    :desc => "Ignore errors about missing home page", :required => false
-  def create_kde_frameworks checkout_dir, output_dir
-    k = KdeFrameworksCreator.new
-    if options["ignore-errors-homepage"]
-      k.parse_checkout checkout_dir, :ignore_errors => [ "link_home_page" ]
-    else
-      k.parse_checkout checkout_dir
-    end
-    k.create_manifests output_dir
-    k.errors.each do |error|
-      puts "#{error[:name]}: #{error[:issue]}"
-    end
-    if options["show-warnings"]
-      k.warnings.each do |warning|
-        puts "#{warning[:name]}: #{warning[:issue]} (#{warning[:details]})"
-      end
-    end
-  end
-  
-  desc "release_kde_frameworks <release_date> <version>",
-    "Create release manifests for KDE frameworks release"
-  def release_kde_frameworks release_date, version
-    process_global_options options
-
-    handler = ManifestHandler.new @@settings
-    k = KdeFrameworksRelease.new handler
-    k.read_generic_manifests
-    k.write_release_manifests release_date, version
-  end
-  
   desc "get_involved", "Information about how to get involved"
   def get_involved
     Upstream.print_info
-  end
-
-  desc "uninstall", "Uninstall library"
-  def uninstall name
-    handler = ManifestHandler.new @@settings
-    manifest = handler.manifest name
-    if !manifest
-      STDERR.puts "Manifest for '#{name}' not found"
-    else
-      @@distro.uninstall manifest
-    end
-  end
-
-  desc "install", "Install library"
-  method_option :dry_run, :type => :boolean,
-    :desc => "Only show what would happen, don't install anything."
-  def install name
-    handler = ManifestHandler.new @@settings
-    manifest = handler.manifest name
-    if !manifest
-      STDERR.puts "Manifest for '#{name}' not found"
-    else
-      @@distro.install manifest, :dry_run => options[:dry_run]
-    end
-  end
-
-  desc "download", "Download source code archive"
-  def download(name)
-    handler = ManifestHandler.new(@@settings)
-    handler.read_remote
-    manifest = handler.manifest(name)
-    if !manifest
-      STDERR.outs "Manifest for '#{name}' not found"
-      exit 1
-    else
-      Downloader.new(handler, STDOUT).download(name, Dir.pwd)
-    end
-  end
-
-  private
-  
-  def process_global_options options
-    @@settings.offline = options[:offline]
-    if options[:manifest_dir]
-      @@settings.manifest_path = options[:manifest_dir]
-    end
   end
 
 end
