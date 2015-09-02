@@ -16,7 +16,6 @@
 
 class CliBase < Thor
 
-  class_option :version, :type => :boolean, :desc => "Show version"
   class_option :offline, :type => :boolean, :desc => "Work offline"
   class_option :manifest_dir, :type => :string, :desc => "Manifest directory"
 

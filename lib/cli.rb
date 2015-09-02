@@ -19,27 +19,20 @@ class Cli < CliBase
   KdeCli.register_to(self)
   ClientCli.register_to(self)
 
-  default_task :global
+  desc "version", "Show version"
+  def version
+    puts "Inqlude: #{@@settings.version}"
 
-  desc "global", "Global options", :hide => true
-  def global
-    if options[:version]
-      puts "Inqlude: #{@@settings.version}"
+    qmake_out = `qmake -v`
+    qmake_out =~ /Qt version (.*) in/
+    puts "Qt: #{$1}"
 
-      qmake_out = `qmake -v`
-      qmake_out =~ /Qt version (.*) in/
-      puts "Qt: #{$1}"
-
-      if @@distro
-        puts "OS: #{@@distro.name} #{@@distro.version}"
-      else
-        puts "OS: unknown"
-      end
+    if @@distro
+      puts "OS: #{@@distro.name} #{@@distro.version}"
     else
-      Cli.help shell
+      puts "OS: unknown"
     end
   end
-
 
   desc "view", "Create view"
   method_option :output_dir, :type => :string, :aliases => "-o",
